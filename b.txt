@@ -1,0 +1,304 @@
+I'm creating a biometric attendance system with mysql and the face recognition library in python. I've bifurcated the functions into separate files for better readability. These scripts might be incorrect and might require modification. Make sure you firstly go through all of these descriptions, optimize each script for fast performance, implement the modifications and enforce the descriptions I've I mentioned and make sure they're correctly imported into other scripts as per what I say, rewrite EVERYTHING
+
+gui.py: Creates the main window which the user interacts with, has pngs as buttons. The look and dimensions are good as it is.
+    Button 1 (View Attendance): Displays the attendance for the detected student (view) 
+    Button 2 (Registration): The second button calls register.py to register then train the new student (train.py), then adds the new student in the mysql database (add_student)
+
+# src/gui.py
+import tkinter as tk
+from PIL import Image, ImageTk
+import cv2
+from detect import process_frame, load_known_faces
+from register import RegistrationForm
+
+class App:
+    def __init__(self, master):
+        self.master = master
+        self.master.title("EBAS")
+        self.master.geometry("375x575")
+        self.master.resizable(False, False)
+        
+        self.webcam_label = tk.Label(master)
+        self.webcam_label.pack(pady=10)
+        
+        self.attendance_button_img = ImageTk.PhotoImage(Image.open("src/buttons/attendance.png").resize((240, 60)))
+        self.attendance_button = tk.Button(master, image=self.attendance_button_img, command=self.run_attendance_script, borderwidth=0, highlightthickness=0, relief="flat")
+        self.attendance_button.pack(pady=10)
+        
+        self.registration_button_img = ImageTk.PhotoImage(Image.open("src/buttons/registration.png").resize((240, 60)))
+        self.registration_button = tk.Button(master, image=self.registration_button_img, command=self.run_registration_script, borderwidth=0, highlightthickness=0, relief="flat")
+        self.registration_button.pack(pady=10)
+        
+        self.cap = cv2.VideoCapture(0)
+        if not self.cap.isOpened():
+            print("Error: Failed to access webcam")
+            self.master.destroy()
+            return
+        
+        # Load known faces once
+        self.known_face_encodings, self.known_face_names = load_known_faces("src/datasets")
+        self.update_webcam()
+
+    def update_webcam(self):
+        ret, frame = self.cap.read()
+        if ret:
+            # Process the frame to detect faces and draw rectangles
+            frame = process_frame(frame, self.known_face_encodings, self.known_face_names)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = self.resize_frame(frame)
+            webcam_img = Image.fromarray(frame)
+            webcam_img = ImageTk.PhotoImage(webcam_img)
+            self.webcam_label.config(image=webcam_img)
+            self.webcam_label.image = webcam_img
+            self.master.after(20, self.update_webcam)
+
+    def resize_frame(self, frame):
+        height, width, _ = frame.shape
+        aspect_ratio = width / height
+        new_height = 375
+        new_width = int(new_height * aspect_ratio)
+        return cv2.resize(frame, (new_width, new_height))
+
+    def run_attendance_script(self):
+        # Implement this
+        print("Attendance functionality to be implemented")
+
+    def run_registration_script(self):
+        RegistrationForm(self.master, self.cap)
+
+
+register.py: A form which takes in roll_no, fname, lname and email_id as inputs, then trains the new student (train.py), adds them in the mysql database (add_student) and saves the student's photos in the dataset's folder as fname_lname_roll_no. After all it displays "Registration Successful"
+
+# register.py
+import tkinter as tk
+from tkinter import messagebox
+from PIL import Image, ImageTk
+from train import run_training
+from database import add_student
+
+class RegistrationForm:
+    def __init__(self, master, cap):
+        self.master = tk.Toplevel(master)
+        self.cap = cap
+        #self.db = Database()
+        self.master.title("Registration Form")
+        self.setup_ui()
+
+    def setup_ui(self):
+        window_width = 300
+        window_height = 200
+        screen_width = self.master.winfo_screenwidth()
+        screen_height = self.master.winfo_screenheight()
+        x_coordinate = (screen_width / 2) - (window_width / 2)
+        y_coordinate = (screen_height / 2) - (window_height / 2)
+        self.master.geometry("%dx%d+%d+%d" % (window_width, window_height, x_coordinate, y_coordinate))
+
+        self.label_name = tk.Label(self.master, text="First Name")
+        self.label_name.grid(row=0, column=0, padx=10, pady=5, sticky="e")
+        self.entry_name = tk.Entry(self.master)
+        self.entry_name.grid(row=0, column=1, padx=10, pady=5)
+
+        self.label_lastname = tk.Label(self.master, text="Last Name")
+        self.label_lastname.grid(row=1, column=0, padx=10, pady=5, sticky="e")
+        self.entry_lastname = tk.Entry(self.master)
+        self.entry_lastname.grid(row=1, column=1, padx=10, pady=5)
+
+        self.label_email = tk.Label(self.master, text="Email")
+        self.label_email.grid(row=2, column=0, padx=10, pady=5, sticky="e")
+        self.entry_email = tk.Entry(self.master)
+        self.entry_email.grid(row=2, column=1, padx=10, pady=5)
+
+        self.label_roll_no = tk.Label(self.master, text="Roll Number")
+        self.label_roll_no.grid(row=3, column=0, padx=10, pady=5, sticky="e")
+        self.entry_roll_no = tk.Entry(self.master)
+        self.entry_roll_no.grid(row=3, column=1, padx=10, pady=5)
+
+        self.registration_button_img = ImageTk.PhotoImage(Image.open("src/buttons/register.png").resize((160, 40)))
+        self.registration_button = tk.Button(self.master, image=self.registration_button_img, command=self.submit_form, borderwidth=0, highlightthickness=0, relief="flat")
+        self.registration_button.place(relx=0.5, rely=0.78, anchor="center")
+
+# src/register.py
+# Inside RegistrationForm class
+
+    def submit_form(self):
+        fname = self.entry_name.get()
+        lname = self.entry_lastname.get()
+        email = self.entry_email.get()
+        roll_no = self.entry_roll_no.get()
+
+        if not all([fname, lname, email, roll_no]):
+            messagebox.showerror("Error", "All fields are required")
+            return
+
+        try:
+            roll_no = int(roll_no)
+        except ValueError:
+            messagebox.showerror("Error", "Roll Number must be an integer")
+            return
+
+        # Add student to the database
+        add_student(roll_no, fname, lname, email)
+
+        # Proceed to capture images for the student
+        run_training(fname, lname, self.cap)  # Adjusted to match the updated run_training signature
+
+        messagebox.showinfo("Success", "Registration successful")
+        self.master.destroy()
+
+def run_registration_form(cap):
+    root = tk.Tk()
+    RegistrationForm(root, cap)
+    root.mainloop()
+
+# This function can be called from gui.py when the registration button is clicked.
+
+train.py: Triggered when the "Register" button is pressed. Simply takes 10 photos of the new subject and saves them in the folder "fname_lname_roll_no" in the datasets directory.
+
+import cv2
+import os
+
+# src/train.py
+import cv2
+import os
+
+def run_training(first_name, last_name, cap):
+    datasets_dir = "src/datasets"
+    person_folder = f"{first_name}_{last_name}"
+
+    # Create the datasets directory if it doesn't exist
+    os.makedirs(datasets_dir, exist_ok=True)
+
+    image_count = 1
+    while image_count <= 10:
+        print(f"Capturing image {image_count} for {first_name} {last_name}")
+
+        # Use the passed video capture object
+        _, frame = cap.read()
+
+        # Save the captured image
+        image_path = os.path.join(datasets_dir, person_folder, f"image{image_count}.jpg")
+        os.makedirs(os.path.dirname(image_path), exist_ok=True)
+        cv2.imwrite(image_path, frame)
+        #print(f"Image {image_count} saved for {first_name} {last_name}")
+
+        image_count += 1
+
+
+detect.py: Performs real time detection by scanning through the people in the dataset, displays "fname lname Present" in the gui's webcam feed, then upon detecting the face it updates the student and record_student tables (update). Make sure it doesn't misdetect a person, if they're not in the database just say "unknown" and don't do anything
+
+
+# detect.py
+import os
+import cv2
+import face_recognition
+from database import update
+
+#db = Database()
+
+def load_known_faces(datasets_folder):
+    known_face_encodings = []
+    known_face_names = []
+    for person_folder in os.listdir(datasets_folder):
+        person_folder_path = os.path.join(datasets_folder, person_folder)
+        if os.path.isdir(person_folder_path):
+            for filename in os.listdir(person_folder_path):
+                img_path = os.path.join(person_folder_path, filename)
+                image = face_recognition.load_image_file(img_path)
+                encoding = face_recognition.face_encodings(image)
+                if encoding:
+                    known_face_encodings.append(encoding[0])
+                    known_face_names.append(person_folder.replace('_', ' '))
+    return known_face_encodings, known_face_names
+
+def process_frame(frame, known_face_encodings, known_face_names):
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    face_locations = face_recognition.face_locations(rgb_frame)
+    face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+
+    for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+        matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+        name = "Unknown"
+
+        if True in matches:
+            first_match_index = matches.index(True)
+            name = known_face_names[first_match_index]
+
+            # Draw rectangle and name text on the frame
+            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+            
+            # Check if name contains a space indicating a first and last name
+            if ' ' in name:
+                fname, lname = name.split(' ', 1)  # Split on the first space only
+            else:
+                fname = name  # Use the whole name as fname if no space
+                lname = ''  # lname is empty if no space
+
+            # Call update_presence only if a known face is detected
+            if fname != "Unknown":
+                update(fname, lname)
+
+            # Adjusted to display just the first name or the whole name if no last name
+            display_name = f"{fname} {lname}"
+            cv2.putText(frame, display_name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255), 1)
+
+    return frame
+
+database.py: Connects the python script to the mysql database. The connect decorator initializes the connection, performs the query then stops the connection. It's functions include:
+    add: Takes in roll_no, fname lname and email_id from the register.py form and adds it to the student table.
+    update: Upon detection, updates the record_student table by adding a "y" for today, also updates the present_percentage in the students table by  calculating 100 * (no. of y's for roll_no x/ total y's and n's for roll_no x). Also, there's a default presence of "n" for every date after the starting_date (declared globally, let's say 2024-03-01)
+    view: to display the record for the detected student in the student table
+
+import mysql.connector
+#from datetime import datetime
+
+config = {
+    'user': 'root',
+    'password': '1234',
+    'host': 'localhost',
+    'database': 'attendance',
+    'raise_on_warnings': True
+}
+
+# Decorator to initialize/disable connection
+def connect(func):
+    def wrapper(*args, **kwargs):
+        try:
+            connection = mysql.connector.connect(**config)
+            if connection.is_connected():
+                print('\nConnected to MySQL database\n')
+
+            cursor = connection.cursor()
+            result = func(cursor, *args, **kwargs)
+            connection.commit()  # Commit transaction
+            cursor.close()
+            return result
+
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
+            return None
+
+        finally:
+            if 'connection' in locals():
+                connection.close()
+                print('\nMySQL connection closed')
+
+    return wrapper
+
+#functions here
+
+Table record_student:
+CREATE TABLE record_student (
+    roll_no INT,
+    date DATE,
+    presence ENUM('y', 'n') DEFAULT 'n',
+    FOREIGN KEY (roll_no) REFERENCES student(roll_no)
+);
+
+Table student:
+CREATE TABLE student (
+    roll_no INT NOT NULL PRIMARY KEY,
+    fname VARCHAR(255),
+    lname VARCHAR(255),
+    email_id VARCHAR(255),
+    present_percentage FLOAT
+);

@@ -1,0 +1,391 @@
+I'm creating a biometric attendance system with mysql and the face recognition library in python. I've bifurcated the functions into separate files for better readability. Some of these scripts are incomplete so I want you to understand what they do and implement the changes I suggest, while at the same time you can implement any change you seem fit to make it more cohesive and be faster, including importing and/or connecting all these separate scripts together wherever apt as to function as one, removing any art that is redundant. You may create a main.py file for the final executions if it seems right. 
+
+Here are the tables in the mysql database named "attendance" that we'll be working with:
+CREATE TABLE student (
+    roll_no INT NOT NULL PRIMARY KEY,
+    fname VARCHAR(255),
+    lname VARCHAR(255),
+    present_percentage FLOAT,
+    email VARCHAR(255)
+);
+
+CREATE TABLE record_student (
+    roll_no INT,
+    date DATE,
+    presence ENUM('y', 'n'),
+    FOREIGN KEY (roll_no) REFERENCES student(roll_no)
+);
+
+
+Here are the parts you need to work with, what they do, what changes they need and what other scripts they're connected with:
+
+gui.py: The code creates a 375x575 GUI application using Tkinter to display a webcam feed and buttons for attendance and registration. The feed is captured with opencv and uses the resized_frame function to make the feed proportionate and centered. Additionally the two buttons which are displayed with pngs in the buttons folder, runs two scripts, with the first one displaying the student table (view_student in database.py), then asking if it wants to view the records table (view_record in database.py). The second button is for registering a new student. So it first runs a form which is register.py, then runs the training script (train.py) and saves the folder as fname_lname in the datasets folder after taking 5 images. The look of the gui window doesn't require any change.
+
+Code:
+import tkinter as tk
+import cv2
+from PIL import Image, ImageTk
+import subprocess
+
+class App:
+    def __init__(self):
+        self.root = tk.Tk()
+        self.root.title("EBAS")
+        self.root.geometry("375x575")
+        self.root.resizable(False, False)
+
+        # Webcam Feed
+        self.webcam_label = tk.Label(self.root)
+        self.webcam_label.pack(pady=10)
+
+        # Attendance Button
+        self.attendance_button_img = ImageTk.PhotoImage(Image.open("src/buttons/attendance.png").resize((240, 60)))
+        self.attendance_button = tk.Button(self.root, image=self.attendance_button_img, command=self.run_attendance_script, borderwidth=0, highlightthickness=0, relief="flat")
+        self.attendance_button.pack(pady=10)
+
+        # Registration Button
+        self.registration_button_img = ImageTk.PhotoImage(Image.open("src/buttons/registration.png").resize((240, 60)))
+        self.registration_button = tk.Button(self.root, image=self.registration_button_img, command=self.run_registration_script, borderwidth=0, highlightthickness=0, relief="flat")
+        self.registration_button.pack(pady=10)
+
+        # Webcam Initialization
+        self.cap = cv2.VideoCapture(0)
+        if not self.cap.isOpened():
+            print("Error: Failed to access webcam")
+            self.root.destroy()
+            return
+
+        self.update_webcam()
+        self.root.mainloop()
+
+    def update_webcam(self):
+        ret, frame = self.cap.read()
+        if ret:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = self.resize_frame(frame)
+            webcam_img = Image.fromarray(frame)
+            webcam_img = ImageTk.PhotoImage(webcam_img)
+            self.webcam_label.config(image=webcam_img)
+            self.webcam_label.image = webcam_img  # Prevent garbage collection
+        self.root.after(20, self.update_webcam)
+
+    def resize_frame(self, frame):
+        height, width, _ = frame.shape
+        aspect_ratio = width / height
+        new_height = 375
+        new_width = int(new_height * aspect_ratio)
+        return cv2.resize(frame, (new_width, new_height))
+
+    def run_attendance_script(self):
+        subprocess.Popen(["python", "b.py"])  # Replace "python" with the path to your Python interpreter if needed
+
+    def run_registration_script(self):
+        subprocess.Popen(["python", "src/register.py"])  # Replace "python" with the path to your Python interpreter if needed
+
+if __name__ == "__main__":
+    app = App()
+
+register.py: The code creates a simple registration form GUI using Tkinter with fields for first name, last name, email, and roll number, it for now only prints the information but it should instead use the add function in database.py to add these details from the form to the student table in mysql. It should then automatically proceed to create the dataset for the student using train.py. I'm satisfied with the look good and it doesn't really requires any change, its the functionality I'm asking you to implement.
+
+Code:
+import tkinter as tk
+from PIL import Image, ImageTk
+
+class RegistrationForm:
+    def __init__(self, master):
+        self.master = master
+        master.title("Registration Form")
+        
+        # Set window size and position it at the center of the screen
+        window_width = 300
+        window_height = 200
+        screen_width = master.winfo_screenwidth()
+        screen_height = master.winfo_screenheight()
+        x_coordinate = (screen_width / 2) - (window_width / 2)
+        y_coordinate = (screen_height / 2) - (window_height / 2)
+        master.geometry("%dx%d+%d+%d" % (window_width, window_height, x_coordinate, y_coordinate))
+
+        # Create labels and entry fields
+        self.label_name = tk.Label(master, text="First Name")
+        self.label_name.grid(row=0, column=0, padx=10, pady=5, sticky="e")
+        self.entry_name = tk.Entry(master)
+        self.entry_name.grid(row=0, column=1, padx=10, pady=5)
+
+        self.label_lastname = tk.Label(master, text="Last Name")
+        self.label_lastname.grid(row=1, column=0, padx=10, pady=5, sticky="e")
+        self.entry_lastname = tk.Entry(master)
+        self.entry_lastname.grid(row=1, column=1, padx=10, pady=5)
+
+        self.label_email = tk.Label(master, text="Email")
+        self.label_email.grid(row=2, column=0, padx=10, pady=5, sticky="e")
+        self.entry_email = tk.Entry(master)
+        self.entry_email.grid(row=2, column=1, padx=10, pady=5)
+
+        self.label_roll_no = tk.Label(master, text="Roll Number")
+        self.label_roll_no.grid(row=3, column=0, padx=10, pady=5, sticky="e")
+        self.entry_roll_no = tk.Entry(master)
+        self.entry_roll_no.grid(row=3, column=1, padx=10, pady=5)
+
+        # Registration Button
+        self.registration_button_img = ImageTk.PhotoImage(Image.open("src/buttons/register.png").resize((180, 45)))
+        self.registration_button = tk.Button(master, image=self.registration_button_img, command=self.submit_form, borderwidth=0, highlightthickness=0, relief="flat")
+        self.registration_button.place(relx=0.5, rely=0.78, anchor="center")
+
+    def submit_form(self):
+        name = self.entry_name.get()
+        lastname = self.entry_lastname.get()
+        email = self.entry_email.get()
+        roll_no = self.entry_roll_no.get()
+        
+        print("First Name:", name)
+        print("Last Name:", lastname)
+        print("Email:", email)
+        print("Roll No:", roll_no)
+
+def run_registration_form():
+    root = tk.Tk()
+    registration_form = RegistrationForm(root)
+    root.mainloop()
+
+# if __name__ == "__main__":
+    run_registration_form()
+
+Train.py: Ran automatically after register.py. For now, the code captures images from a webcam for 10 different persons, saving each person's images as "Person_". Modify it since it only needs to take 5 images for one person at a time, then based on the registration form's data, save the images in the src/datasets folder as fname_lname. Also as of now the code opens a separate webcam window during the training process, which is something i dont want. I want only the gui.py's webcam feed to be open, so use/access only that, remove any redundant lines of code in the process.
+
+Code:
+import cv2
+import os
+from database import add
+from register import run_registration_form
+
+run_registration_form()
+
+datasets_dir = "src\datasets"
+
+# Create the datasets directory if it doesn't exist
+os.makedirs(datasets_dir, exist_ok=True)
+
+person_count = 1
+image_count = 1
+
+while person_count <= 10 and image_count <= 10:
+    print(f"Capturing images for Person {person_count}, Image {image_count}")
+
+    # Initialize video capture
+    video_capture = cv2.VideoCapture(0)
+    while True:
+        ret, frame = video_capture.read()
+        cv2.imshow('Video', frame)
+
+        # Save the captured image
+        image_path = os.path.join(datasets_dir, f"person{person_count}", f"image{image_count}.jpg")
+        os.makedirs(os.path.dirname(image_path), exist_ok=True)
+        cv2.imwrite(image_path, frame)
+        print(f"Image {image_count} saved for Person {person_count}")
+        image_count += 1
+
+        # Check if time limit exceeded or 10 images captured
+        if image_count > 10:
+            break
+
+        # Break the loop when Esc is pressed
+        if cv2.waitKey(1) & 0xFF == 27:
+            break
+    
+    # Release video capture and close window
+    video_capture.release()
+    cv2.destroyAllWindows()
+
+    # Move to the next person
+    person_count += 1
+
+print("Image capture complete.")
+
+Detect.py: The code performs real-time face detection and recognition using a webcam feed, utilizing the dataset folder to compare with known faces. Detected faces are boxed with names displayed on the video feed. Maybe detecting the face before scanning through the dataset is a faster process so make that change. Like train.py, this too opens its own window for the webcam, I want only the gui.py's webcam feed to be open, so use/access only that, remove any redundant lines of code in the process. Also once a face is detected, use the update function in database.py to update the detected person's attendance. Great thing is if a face it not detected it is displayed as Unknown, so nothing happens.
+
+Code:
+import os
+import cv2
+import face_recognition
+import numpy as np
+
+def face_detection(datasets_folder="src/datasets"):
+    # Function to load images from folder
+    def load_images_from_folder(folder):
+        images = []
+        for filename in os.listdir(folder):
+            _, ext = os.path.splitext(filename)
+            if ext.lower() in ('.jpg', '.png'):
+                img_path = os.path.join(folder, filename)
+                image = face_recognition.load_image_file(img_path)
+                images.append(image)
+        return images
+
+    # Load known faces
+    known_face_encodings = []
+    known_face_names = []
+
+    for person_folder in os.listdir(datasets_folder):
+        person_folder_path = os.path.join(datasets_folder, person_folder)
+        if os.path.isdir(person_folder_path):
+            images = load_images_from_folder(person_folder_path)
+            for image in images:
+                encoding = face_recognition.face_encodings(image)
+                if encoding:
+                    known_face_encodings.append(encoding[0])
+                    known_face_names.append(person_folder)
+
+    # Initialize video capture
+    video_capture = cv2.VideoCapture(0)
+
+    while True:
+        _, frame = video_capture.read()
+        small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB) 
+        
+        # Recognize faces
+        face_locations = face_recognition.face_locations(rgb_small_frame)
+        face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+        
+        for face_location, face_encoding in zip(face_locations, face_encodings):
+            top, right, bottom, left = [i * 4 for i in face_location]
+            name = "Unknown"
+
+            # Check if the face matches any known faces
+            matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+            face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
+            
+            if True in matches:
+                best_match_index = np.argmin(face_distances)
+                name = known_face_names[best_match_index]
+                    
+            # Draw a box around the face and label it
+            cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+            cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.5, (0, 0, 255), 1)
+
+        cv2.imshow("Camera", frame)
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+        
+    video_capture.release()
+    cv2.destroyAllWindows()
+
+# Example of using the function
+if __name__ == "__main__":
+    face_detection()
+
+Database.py: This code uses mysql.connector, utilizes a decorator to initialize, perform a function then disable the connection. The add function simply adds a new student to the database, as per the registration form (register.py). The update function comes into play when a student is detected (detect), it then updates the record_student table by marking the presence on that day as "y" and makes the null values in the presence column before today as "n" i.e absent, then proceeds to calculate the present percentage for the student table. The view_student function is executed when the "view attendance" button is pressed in the gui, after which it simply shows/displays a second promp whether to display the record_student table. You can optimize the commands/ put them in classes if importing them is easier that way.
+
+Code:
+import mysql.connector
+from datetime import datetime, timedelta
+
+config = {
+    'user': 'root',
+    'password': '1234',
+    'host': 'localhost',
+    'database': 'attendance',
+    'raise_on_warnings': True
+}
+
+start_date = datetime(2024, 3, 1) #YYYY-MM-DD
+
+# Decorator to initialize/disable connection
+def connect(func):
+    def wrapper(*args, **kwargs):
+        try:
+            connection = mysql.connector.connect(**config)
+            if connection.is_connected():
+                print('\nConnected to MySQL database\n')
+
+            cursor = connection.cursor()
+            result = func(cursor, *args, **kwargs)
+            connection.commit()  # Commit transaction
+            cursor.close()
+            return result
+
+        except mysql.connector.Error as err:
+            print(f"Error: {err}")
+            return None
+
+        finally:
+            if 'connection' in locals():
+                connection.close()
+                print('\nMySQL connection closed')
+
+    return wrapper
+
+@connect
+def view_student(cursor):
+    try:
+        cursor.execute(f"SELECT * FROM student")
+        rows = cursor.fetchall()
+        for row in rows:
+            print(row)
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+
+@connect
+def view_record(cursor, roll_no):
+    try:
+        cursor.execute("SELECT date, presence FROM record_student WHERE roll_no = %s", (roll_no,))
+        rows = cursor.fetchall()
+        for row in rows:
+            print(row)
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+
+
+@connect
+def add(cursor, ID, fname, lname, email):
+    try:
+        cursor.execute(f"""INSERT INTO student VALUES ({ID}, '{fname}', '{lname}', 0, '{email}')""")
+        print("Registration Successful")
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+
+@connect
+def update(cursor, roll_no):
+    try:
+        # Update presence for the current day
+        current_date = datetime.now().date()
+        formatted_date = current_date.strftime('%Y-%m-%d')  # Format date as 'yyyy-mm-dd'
+
+        cursor.execute("""
+            UPDATE record_student 
+            SET presence = 'y' 
+            WHERE roll_no = %s AND date = %s
+        """, (roll_no, str(formatted_date)))
+
+        # Set all null values before the current date as 'n' (implying absent)
+        cursor.execute("""
+            UPDATE record_student 
+            SET presence = 'n' 
+            WHERE roll_no = %s AND date < %s AND presence IS NULL
+        """, (roll_no, formatted_date))
+
+        # Update percentage in students table
+        cursor.execute("""
+            SELECT COUNT(*) FROM record_student WHERE roll_no = %s
+        """, (roll_no,))
+        total_classes = cursor.fetchone()[0]
+
+        cursor.execute("""
+            SELECT COUNT(*) FROM record_student WHERE roll_no = %s AND presence = 'y'
+        """, (roll_no,))
+        attended_classes = cursor.fetchone()[0]
+
+        present_percentage = (attended_classes / total_classes) * 100 if total_classes > 0 else 0
+
+        cursor.execute("""
+            UPDATE student 
+            SET present_percentage = %s 
+            WHERE roll_no = %s
+        """, (present_percentage, roll_no))
+
+        print("Attendance updated successfully.")
+
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+
+Now that you have all the codes along with their working and my instructions, modify, optimize and connect every script and return it along with a main.py file which brings it all together. Thanks
