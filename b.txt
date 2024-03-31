@@ -332,3 +332,416 @@ Create a function update_presence(cursor, fname, lname, roll_no) which upon bein
 1. Creates a record for today with presence as "y" for roll_no x in the record_student table
 2. Creates (if they don't exist) records for all days before today and the last existing record, with presence "n"
 3. Updates the present_percentage in the student table for roll_no x which is simply 100*(no. of y's for roll_no x / total records for roll_no x in record_students)
+
+I'm creating a biometric attendance system with mysql and the face recognition library in python. I've bifurcated the functions into separate files for better readability. I want you to optimize and beautify each script for maximum optimization, removed redundancy and smooth operation. Go through the descripts as to get an idea of what they do, then rewrite all of them, dont miss a single line, (i dont want long explanations), also add new simple and short comments for every function/operation to these scripts. Make sure they're imported into each other correctly. Chnage anything you find unneccesary or might make things slower.
+
+**gui.py**:
+- Creates the main window for user interaction.
+- Uses PNG images as buttons.
+- Buttons:
+  1. View Attendance: Displays attendance for the detected student, using operations from database.py
+  2. Registration: Calls `register.py` to register the new student, capture their photos then adds them to the MySQL database.
+
+#gui.py
+import tkinter as tk
+from PIL import Image, ImageTk
+import cv2
+from detect import process_frame, load_known_faces
+from register import run_registration_form
+from database import view  # Assuming this function is properly defined
+from tkinter import ttk
+
+class App:
+    def __init__(self, master):
+        self.master = master
+        self.stop_webcam_update = False  # Initialize the attribute here
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.master.title("EBAS")
+        self.master.geometry("375x575")
+        self.master.resizable(False, False)
+        
+        self.webcam_label = tk.Label(self.master)
+        self.webcam_label.pack(pady=10)
+        
+        self.setup_buttons()
+        self.initialize_webcam()
+        self.load_faces()
+        self.update_webcam()
+
+    def setup_buttons(self):
+        self.attendance_button_img = ImageTk.PhotoImage(Image.open("src/buttons/attendance.png").resize((240, 60)))
+        self.attendance_button = tk.Button(self.master, image=self.attendance_button_img, command=self.run_attendance_script, borderwidth=0)
+        self.attendance_button.pack(pady=10)
+        
+        self.registration_button_img = ImageTk.PhotoImage(Image.open("src/buttons/registration.png").resize((240, 60)))
+        self.registration_button = tk.Button(self.master, image=self.registration_button_img, command=lambda: run_registration_form(self.cap), borderwidth=0)
+        self.registration_button.pack(pady=10)
+
+    def initialize_webcam(self):
+        self.cap = cv2.VideoCapture(0)
+        if not self.cap.isOpened():
+            print("Error: Failed to access webcam")
+            self.master.destroy()
+
+    def load_faces(self):
+        self.known_face_encodings, self.known_face_names = load_known_faces("src/datasets")
+
+    def update_webcam(self):
+        if self.stop_webcam_update:
+            # Skip updating the webcam feed if stopped
+            return
+
+        ret, frame = self.cap.read()
+        if ret:
+            frame, detected_roll_no = process_frame(frame, self.known_face_encodings, self.known_face_names)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            frame = self.resize_frame(frame)
+            webcam_img = ImageTk.PhotoImage(Image.fromarray(frame))
+            self.webcam_label.config(image=webcam_img)
+            self.webcam_label.image = webcam_img
+            self.master.after(30, self.update_webcam)
+            if detected_roll_no is not None:
+                self.detected_roll_no = detected_roll_no
+ 
+    def resize_frame(self, frame):
+        height, width, _ = frame.shape
+        new_height = 375
+        new_width = int((width / height) * new_height)
+        return cv2.resize(frame, (new_width, new_height))
+
+    def run_attendance_script(self):
+        if hasattr(self, 'detected_roll_no') and self.detected_roll_no:
+            # Hide buttons
+            self.attendance_button.pack_forget()
+            self.registration_button.pack_forget()
+
+            attendance_info = view(self.detected_roll_no)  # Assuming view returns (attendance_records, (fname, lname, present_percentage))
+            self.display_attendance_records(attendance_info)
+        else:
+            print("No student selected or detected")
+   
+    def display_attendance_records(self, attendance_info):
+        # Stop the webcam feed update
+        self.stop_webcam_update = True
+
+        # Clear the existing content in webcam_label
+        self.webcam_label.pack_forget()
+
+        attendance_records, name_percentage = attendance_info
+        fname, lname, present_percentage = name_percentage
+
+        # Change the main window title to show present percentage
+        self.master.title(f"{fname} {lname}'s Record - Present Percentage: {present_percentage}%")
+
+        # Use the existing webcam_label space for Treeview
+        self.tree_frame = tk.Frame(self.master)
+        self.tree_frame.pack(pady=10, expand=True, fill=tk.BOTH)
+
+        columns = ('date', 'presence')
+        self.tree = ttk.Treeview(self.tree_frame, columns=columns, show='headings')
+        
+        self.tree.heading('date', text='Date')
+        self.tree.heading('presence', text='Presence')
+        
+        self.tree.column('date', width=120, anchor=tk.CENTER)
+        self.tree.column('presence', width=120, anchor=tk.CENTER)
+
+        for record in attendance_records:
+            date, presence = record
+            presence_str = "Present" if presence == 'y' else "Absent"
+            self.tree.insert('', tk.END, values=(date, presence_str))
+
+        scrollbar = ttk.Scrollbar(self.tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscroll=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill='y')
+        self.tree.pack(expand=True, fill=tk.BOTH)
+
+        # Button to return to webcam view
+        self.return_button_img = ImageTk.PhotoImage(Image.open("src/buttons/return.png").resize((240, 60)))
+        self.return_to_webcam_button = tk.Button(self.master, image=self.return_button_img, command=self.resume_webcam_feed, borderwidth=0)
+        self.return_to_webcam_button.pack(pady=10)
+
+    def resume_webcam_feed(self):
+        # Clear the attendance records and restore the main window title
+        self.master.title("EBAS")
+        self.tree_frame.pack_forget()
+        self.return_to_webcam_button.pack_forget()
+        
+        # Restore the webcam feed and buttons
+        self.webcam_label.pack(pady=10)
+        self.attendance_button.pack(pady=10)
+        self.registration_button.pack(pady=10)
+
+        self.stop_webcam_update = False
+        self.update_webcam()
+
+    def run_registration_script(self):
+        # This method will be triggered when the "Registration" button is clicked
+        run_registration_form(self.cap)
+
+**register.py**:
+- Form for inputting roll number, first name, last name, and email, adds them to the MySQL database.
+- Saves student photos in the dataset folder as fname_lname_rollno using capture
+- Displays "Registration Successful" upon completion.
+
+# register.py
+import tkinter as tk
+from tkinter import messagebox
+from PIL import Image, ImageTk
+from database import add_student
+import cv2
+import os
+
+def run_registration_form(cap):
+    root = tk.Toplevel()
+    RegistrationForm(root, cap)
+    root.mainloop()
+
+def capture(first_name, last_name, roll_no, cap):
+    datasets_dir = "src/datasets"
+    person_folder = f"{first_name}_{last_name}_{roll_no}"
+    person_path = os.path.join(datasets_dir, person_folder)
+
+    os.makedirs(person_path, exist_ok=True)
+
+    image_count = 0
+    while image_count < 10:
+        ret, frame = cap.read()
+        if ret:
+            image_count += 1
+            image_path = os.path.join(person_path, f"image{image_count}.jpg")
+            cv2.imwrite(image_path, frame)
+            print(f"Captured image {image_count}/10 for {first_name} {last_name}")
+        #cv2.imshow('Capturing Images', frame)
+        #cv2.waitKey(1)
+
+    #cv2.destroyAllWindows()
+
+class RegistrationForm:
+    def __init__(self, master, cap):
+        self.master = master
+        self.cap = cap
+        self.setup_ui()
+
+    def setup_ui(self):
+        self.master.title("Registration Form")
+        self.master.geometry("400x300")
+        
+        self.create_widgets()
+
+    def create_widgets(self):
+        # Create a frame to contain the form elements and center it
+        form_frame = tk.Frame(self.master)
+        form_frame.pack(expand=True)
+
+        labels = ["First Name", "Last Name", "Email", "Roll Number"]
+        self.entries = {}
+
+        label_font = ("Arial", 12, "bold")  # Example: Arial, 12pt, bold
+        entry_font = ("Arial", 12)  # Example: Arial, 12pt
+
+        for i, text in enumerate(labels):
+            label = tk.Label(form_frame, text=text, font=label_font)
+            entry = tk.Entry(form_frame, font=entry_font)
+
+            label.grid(row=i, column=0, padx=10, pady=10, sticky="e")
+            entry.grid(row=i, column=1, padx=10, pady=10)
+            self.entries[text] = entry
+        self.register_button_img = ImageTk.PhotoImage(Image.open("src/buttons/register.png").resize((180, 45)))
+        register_button = tk.Button(form_frame, image=self.register_button_img, command=self.submit_form, borderwidth=0)
+        register_button.grid(row=len(labels), column=0, columnspan=2, pady=20)
+    def submit_form(self):
+        fname = self.entries["First Name"].get()
+        lname = self.entries["Last Name"].get()
+        email = self.entries["Email"].get()
+        roll_no = self.entries["Roll Number"].get()
+
+        if not all([fname, lname, email, roll_no]):
+            messagebox.showerror("Error", "All fields are required")
+            return
+
+        try:
+            roll_no = int(roll_no)
+        except ValueError:
+            messagebox.showerror("Error", "Roll Number must be an integer")
+            return
+
+        # Add student to the database
+        if add_student(roll_no, fname, lname, email):
+            # Proceed to capture images for the student
+            capture(fname, lname, roll_no, self.cap)
+            messagebox.showinfo("Success", "Registration successful")
+            self.master.destroy()
+        else:
+            messagebox.showerror("Error", "Failed to add student to the database")
+
+**detect.py**:
+- Performs real-time detection using face recognition.
+- Updates tables upon detection.
+- Displays "fname lname Present" in the GUI's webcam feed.
+- Displays unknown if person not in the database
+
+#detect.py
+import cv2
+import face_recognition
+from database import update_presence
+import os
+
+def load_known_faces(datasets_folder):
+    known_face_encodings = []
+    known_face_names = []
+    for person_folder in os.listdir(datasets_folder):
+        person_folder_path = os.path.join(datasets_folder, person_folder)
+        if os.path.isdir(person_folder_path):
+            for filename in os.listdir(person_folder_path):
+                img_path = os.path.join(person_folder_path, filename)
+                image = face_recognition.load_image_file(img_path)
+                encoding = face_recognition.face_encodings(image)
+                if encoding:
+                    known_face_encodings.append(encoding[0])
+                    # Use the folder name directly as the known name
+                    known_face_names.append(person_folder)
+    return known_face_encodings, known_face_names
+
+
+def process_frame(frame, known_face_encodings, known_face_names):
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    face_locations = face_recognition.face_locations(rgb_frame)
+    face_encodings = face_recognition.face_encodings(rgb_frame, face_locations, )
+
+    detected_roll_no = None  # Initialize detected_roll_no at the start
+
+    for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
+        matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.45)
+
+        if True in matches:
+            first_match_index = matches.index(True)
+            matched_name = known_face_names[first_match_index]
+
+            name_parts = matched_name.split('_')
+            fname, lname, roll_no = name_parts
+            detected_roll_no = roll_no  # Update detected_roll_no when a match is found
+
+            cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+            cv2.putText(frame, f"{fname} {lname}) Present", (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+
+            update_presence(fname, lname, roll_no)
+        
+        else:
+                cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+                cv2.putText(frame, "Unknown", (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+
+    return frame, detected_roll_no
+
+**database.py**:
+- Connects to the MySQL database.
+- Functions include:
+  - `add_student`: Adds a student to the database.
+  - `update_presence`: Updates tables upon detection. Presence and present_percentage
+  - `view`: Displays student records.
+- Table record_student:
+    CREATE TABLE record_student (
+        roll_no INT,
+        date DATE,
+        presence ENUM('y', 'n') DEFAULT 'n',
+        FOREIGN KEY (roll_no) REFERENCES student(roll_no)
+    );
+
+    Table student:
+    CREATE TABLE student (
+        roll_no INT NOT NULL PRIMARY KEY,
+        fname VARCHAR(255),
+        lname VARCHAR(255),
+        email_id VARCHAR(255),
+        present_percentage FLOAT
+    );
+
+#database.py
+import mysql.connector
+from tkinter import messagebox
+import datetime
+from datetime import date, timedelta
+
+config = {
+    'user': 'root',
+    'password': '1234',
+    'host': 'localhost',
+    'database': 'attendance',
+    'raise_on_warnings': True
+}
+#decorator to initialize/disable connections
+def connect(func):
+    def wrapper(*args, **kwargs):
+        connection = mysql.connector.connect(**config)
+        cursor = connection.cursor()
+        try:
+            result = func(cursor, *args, **kwargs)
+            connection.commit()
+            return result
+        finally:
+            cursor.close()
+            connection.close()
+    return wrapper
+
+@connect
+def add_student(cursor, roll_no, fname, lname, email):
+    query = "INSERT INTO student (roll_no, fname, lname, email_id) VALUES (%s, %s, %s, %s)"
+    try:
+        cursor.execute(query, (roll_no, fname, lname, email))
+        return True  # Return True on successful insertion
+    except mysql.connector.IntegrityError as e:
+        print(f"IntegrityError: {e}")
+        return False  # Return False if IntegrityError occurs
+
+
+@connect
+def update_presence(cursor, fname, lname, roll_no):
+    today = datetime.date.today()
+    
+    # Ensure the student exists in the database.
+    cursor.execute("SELECT roll_no FROM student WHERE fname = %s AND lname = %s AND roll_no = %s", (fname, lname, roll_no))
+    if not cursor.fetchone():
+        print("Student not found in the database.")
+        return
+    
+    # Check for the last date recorded to find any missing dates.
+    cursor.execute("SELECT MAX(date) FROM record_student WHERE roll_no = %s", (roll_no,))
+    last_date_record = cursor.fetchone()[0]
+    
+    # If there is a last recorded date and it's before today, fill the gap.
+    if last_date_record and last_date_record < today:
+        missing_dates = [last_date_record + timedelta(days=x) for x in range(1, (today - last_date_record).days)]
+        for missing_date in missing_dates:
+            cursor.execute("INSERT INTO record_student (roll_no, date, presence) VALUES (%s, %s, 'n')", (roll_no, missing_date))
+    
+    # Insert today's record with presence "y" or update if already exists.
+    cursor.execute("SELECT presence FROM record_student WHERE roll_no = %s AND date = %s", (roll_no, today))
+    if cursor.fetchone():
+        cursor.execute("UPDATE record_student SET presence = 'y' WHERE roll_no = %s AND date = %s", (roll_no, today))
+    else:
+        cursor.execute("INSERT INTO record_student (roll_no, date, presence) VALUES (%s, %s, 'y')", (roll_no, today))
+        messagebox.showinfo("Presence detected", f"{fname} {lname}'s presence was successfully recorded")
+
+    # Update present percentage.
+    cursor.execute("SELECT COUNT(*) FROM record_student WHERE roll_no = %s AND presence = 'y'", (roll_no,))
+    days_present = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM record_student WHERE roll_no = %s", (roll_no,))
+    total_days = cursor.fetchone()[0]
+    if total_days > 0:
+        new_percentage = round((days_present / total_days) * 100, 1)  # Rounded to one decimal place.
+        cursor.execute("UPDATE student SET present_percentage = %s WHERE roll_no = %s", (new_percentage, roll_no))
+
+
+@connect
+def view(cursor, roll_no):
+    # Query to retrieve attendance records.
+    cursor.execute("SELECT date, presence FROM record_student WHERE roll_no = %s", (roll_no,))
+    records = cursor.fetchall()
+
+    # Query to retrieve student's first name, last name, and present percentage.
+    cursor.execute("SELECT fname, lname, present_percentage FROM student WHERE roll_no = %s", (roll_no,))
+    name_percentage = cursor.fetchone()  # Expecting a tuple like ('John', 'Doe', 75.0)
+
+    return records, name_percentage

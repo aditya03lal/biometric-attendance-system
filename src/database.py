@@ -2,7 +2,7 @@
 import mysql.connector
 from tkinter import messagebox
 import datetime
-from datetime import timedelta
+from datetime import date, timedelta
 
 config = {
     'user': 'root',

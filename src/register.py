@@ -39,21 +39,31 @@ class RegistrationForm:
 
     def setup_ui(self):
         self.master.title("Registration Form")
-        self.master.geometry("300x200")
+        self.master.geometry("400x300")
         
         self.create_widgets()
 
     def create_widgets(self):
+        # Create a frame to contain the form elements and center it
+        form_frame = tk.Frame(self.master)
+        form_frame.pack(expand=True)
+
         labels = ["First Name", "Last Name", "Email", "Roll Number"]
         self.entries = {}
+
+        label_font = ("Arial", 12, "bold")  # Example: Arial, 12pt, bold
+        entry_font = ("Arial", 12)  # Example: Arial, 12pt
+
         for i, text in enumerate(labels):
-            tk.Label(self.master, text=text).grid(row=i, column=0, padx=10, pady=5, sticky="e")
-            self.entries[text] = tk.Entry(self.master)
-            self.entries[text].grid(row=i, column=1, padx=10, pady=5)
+            label = tk.Label(form_frame, text=text, font=label_font)
+            entry = tk.Entry(form_frame, font=entry_font)
 
-        self.registration_button_img = ImageTk.PhotoImage(Image.open("src/buttons/register.png").resize((160, 40)))
-        tk.Button(self.master, image=self.registration_button_img, command=self.submit_form, borderwidth=0).place(relx=0.5, rely=0.78, anchor="center")
-
+            label.grid(row=i, column=0, padx=10, pady=10, sticky="e")
+            entry.grid(row=i, column=1, padx=10, pady=10)
+            self.entries[text] = entry
+        self.register_button_img = ImageTk.PhotoImage(Image.open("src/buttons/register.png").resize((180, 45)))
+        register_button = tk.Button(form_frame, image=self.register_button_img, command=self.submit_form, borderwidth=0)
+        register_button.grid(row=len(labels), column=0, columnspan=2, pady=20)
     def submit_form(self):
         fname = self.entries["First Name"].get()
         lname = self.entries["Last Name"].get()
