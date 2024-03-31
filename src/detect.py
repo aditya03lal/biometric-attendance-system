@@ -29,7 +29,7 @@ def process_frame(frame, known_face_encodings, known_face_names):
     detected_roll_no = None  # Initialize detected_roll_no at the start
 
     for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-        matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.3)
+        matches = face_recognition.compare_faces(known_face_encodings, face_encoding, 0.45)
 
         if True in matches:
             first_match_index = matches.index(True)
@@ -40,7 +40,7 @@ def process_frame(frame, known_face_encodings, known_face_names):
             detected_roll_no = roll_no  # Update detected_roll_no when a match is found
 
             cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.putText(frame, f"upper({fname} {lname}) Present", (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
+            cv2.putText(frame, f"{fname} {lname}) Present", (left + 6, bottom - 6), cv2.FONT_HERSHEY_DUPLEX, 0.6, (255, 255, 255), 1)
 
             update_presence(fname, lname, roll_no)
         

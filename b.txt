@@ -302,3 +302,33 @@ CREATE TABLE student (
     email_id VARCHAR(255),
     present_percentage FLOAT
 );
+
+I'm using mysql connector in python like this:
+@connect
+def view(cursor, roll_no):
+    query = "SELECT date, presence FROM record_student WHERE roll_no = %s"
+    cursor.execute(query, (roll_no,))
+
+Here are the tables I'll be working with:
+
+Table record_student:
+CREATE TABLE record_student (
+    roll_no INT,
+    date DATE,
+    presence ENUM('y', 'n') DEFAULT 'n',
+    FOREIGN KEY (roll_no) REFERENCES student(roll_no)
+);
+
+Table student:
+CREATE TABLE student (
+    roll_no INT NOT NULL PRIMARY KEY,
+    fname VARCHAR(255),
+    lname VARCHAR(255),
+    email_id VARCHAR(255),
+    present_percentage FLOAT
+);
+
+Create a function update_presence(cursor, fname, lname, roll_no) which upon being called:
+1. Creates a record for today with presence as "y" for roll_no x in the record_student table
+2. Creates (if they don't exist) records for all days before today and the last existing record, with presence "n"
+3. Updates the present_percentage in the student table for roll_no x which is simply 100*(no. of y's for roll_no x / total records for roll_no x in record_students)

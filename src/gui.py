@@ -5,7 +5,7 @@ import cv2
 from detect import process_frame, load_known_faces
 from register import run_registration_form
 from database import view  # Assuming this function is properly defined
-import os
+from tkinter import ttk
 
 class App:
     def __init__(self, master):
@@ -70,28 +70,41 @@ class App:
         else:
             print("No student selected or detected")
    
-    def display_attendance_records(self, attendance_records):
+
+    def display_attendance_records(self, attendance_info):
+        attendance_records, name_percentage = attendance_info
+        fname, lname, present_percentage = name_percentage
+
         # Create a new pop-up window for displaying attendance records
         records_window = tk.Toplevel(self.master)
-        records_window.title("Attendance Records")
-        records_window.geometry("300x200")  # Adjust size as needed
+        records_window_title = f"{fname}'s Record - Present Percentage: {present_percentage}%"
+        records_window.title(records_window_title)
+        records_window.geometry("300x300")  # Adjust size as needed
 
-        # Create a scrollbar
-        scrollbar = tk.Scrollbar(records_window)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        # Define Treeview with columns
+        columns = ('date', 'presence')
+        tree = ttk.Treeview(records_window, columns=columns, show='headings')
+        
+        # Define headings
+        tree.heading('date', text='Date')
+        tree.heading('presence', text='Presence')
+        
+        # Format columns
+        tree.column('date', width=120, anchor=tk.CENTER)
+        tree.column('presence', width=120, anchor=tk.CENTER)
 
-        # Create a Listbox to display the records
-        listbox = tk.Listbox(records_window, yscrollcommand=scrollbar.set)
+        # Insert data into the treeview
         for record in attendance_records:
-            # Assuming each record is a tuple in the format (date, presence)
             date, presence = record
             presence_str = "Present" if presence == 'y' else "Absent"
-            listbox.insert(tk.END, f"{date}: {presence_str}")
-        listbox.pack(side=tk.LEFT, fill=tk.BOTH)
+            tree.insert('', tk.END, values=(date, presence_str))
 
-        # Configure the scrollbar
-        scrollbar.config(command=listbox.yview)
+        # Add a scrollbar
+        scrollbar = ttk.Scrollbar(records_window, orient=tk.VERTICAL, command=tree.yview)
+        tree.configure(yscroll=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill='y')
 
+        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     def run_registration_script(self):
         # This method will be triggered when the "Registration" button is clicked
