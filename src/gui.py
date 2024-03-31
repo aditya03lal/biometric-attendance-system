@@ -10,6 +10,7 @@ from tkinter import ttk
 class App:
     def __init__(self, master):
         self.master = master
+        self.stop_webcam_update = False  # Initialize the attribute here
         self.setup_ui()
 
     def setup_ui(self):
@@ -44,6 +45,10 @@ class App:
         self.known_face_encodings, self.known_face_names = load_known_faces("src/datasets")
 
     def update_webcam(self):
+        if self.stop_webcam_update:
+            # Skip updating the webcam feed if stopped
+            return
+
         ret, frame = self.cap.read()
         if ret:
             frame, detected_roll_no = process_frame(frame, self.known_face_encodings, self.known_face_names)
@@ -62,49 +67,71 @@ class App:
         new_width = int((width / height) * new_height)
         return cv2.resize(frame, (new_width, new_height))
 
-    
     def run_attendance_script(self):
         if hasattr(self, 'detected_roll_no') and self.detected_roll_no:
-            attendance_records = view(self.detected_roll_no)
-            self.display_attendance_records(attendance_records)
+            # Hide buttons
+            self.attendance_button.pack_forget()
+            self.registration_button.pack_forget()
+
+            attendance_info = view(self.detected_roll_no)  # Assuming view returns (attendance_records, (fname, lname, present_percentage))
+            self.display_attendance_records(attendance_info)
         else:
             print("No student selected or detected")
    
-
     def display_attendance_records(self, attendance_info):
+        # Stop the webcam feed update
+        self.stop_webcam_update = True
+
+        # Clear the existing content in webcam_label
+        self.webcam_label.pack_forget()
+
         attendance_records, name_percentage = attendance_info
         fname, lname, present_percentage = name_percentage
 
-        # Create a new pop-up window for displaying attendance records
-        records_window = tk.Toplevel(self.master)
-        records_window_title = f"{fname}'s Record - Present Percentage: {present_percentage}%"
-        records_window.title(records_window_title)
-        records_window.geometry("300x300")  # Adjust size as needed
+        # Change the main window title to show present percentage
+        self.master.title(f"{fname} {lname}'s Record - Present Percentage: {present_percentage}%")
 
-        # Define Treeview with columns
+        # Use the existing webcam_label space for Treeview
+        self.tree_frame = tk.Frame(self.master)
+        self.tree_frame.pack(pady=10, expand=True, fill=tk.BOTH)
+
         columns = ('date', 'presence')
-        tree = ttk.Treeview(records_window, columns=columns, show='headings')
+        self.tree = ttk.Treeview(self.tree_frame, columns=columns, show='headings')
         
-        # Define headings
-        tree.heading('date', text='Date')
-        tree.heading('presence', text='Presence')
+        self.tree.heading('date', text='Date')
+        self.tree.heading('presence', text='Presence')
         
-        # Format columns
-        tree.column('date', width=120, anchor=tk.CENTER)
-        tree.column('presence', width=120, anchor=tk.CENTER)
+        self.tree.column('date', width=120, anchor=tk.CENTER)
+        self.tree.column('presence', width=120, anchor=tk.CENTER)
 
-        # Insert data into the treeview
         for record in attendance_records:
             date, presence = record
             presence_str = "Present" if presence == 'y' else "Absent"
-            tree.insert('', tk.END, values=(date, presence_str))
+            self.tree.insert('', tk.END, values=(date, presence_str))
 
-        # Add a scrollbar
-        scrollbar = ttk.Scrollbar(records_window, orient=tk.VERTICAL, command=tree.yview)
-        tree.configure(yscroll=scrollbar.set)
+        scrollbar = ttk.Scrollbar(self.tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
+        self.tree.configure(yscroll=scrollbar.set)
         scrollbar.pack(side=tk.RIGHT, fill='y')
+        self.tree.pack(expand=True, fill=tk.BOTH)
 
-        tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Button to return to webcam view
+        self.return_button_img = ImageTk.PhotoImage(Image.open("src/buttons/return.png").resize((240, 60)))
+        self.return_to_webcam_button = tk.Button(self.master, image=self.return_button_img, command=self.resume_webcam_feed, borderwidth=0)
+        self.return_to_webcam_button.pack(pady=10)
+
+    def resume_webcam_feed(self):
+        # Clear the attendance records and restore the main window title
+        self.master.title("EBAS")
+        self.tree_frame.pack_forget()
+        self.return_to_webcam_button.pack_forget()
+        
+        # Restore the webcam feed and buttons
+        self.webcam_label.pack(pady=10)
+        self.attendance_button.pack(pady=10)
+        self.registration_button.pack(pady=10)
+
+        self.stop_webcam_update = False
+        self.update_webcam()
 
     def run_registration_script(self):
         # This method will be triggered when the "Registration" button is clicked
