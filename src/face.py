@@ -1,10 +1,14 @@
+# face.py
 import cv2
 import face_recognition
 from db import update_presence
 import os
 
 def capture(first_name, last_name, roll_no, cap):
-    """Captures 10 photos of the student"""
+    '''
+    1. Captures an image of the subject
+    2. Saves it in the dataset inside a subdir named fname_lname_rollno
+    '''
     person_path = f"src/datasets/{first_name}_{last_name}_{roll_no}"
     os.makedirs(person_path, exist_ok=True)
     ret, frame = cap.read()

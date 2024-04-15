@@ -1,10 +1,8 @@
-# database.py
+# db.py
 import mysql.connector
-from tkinter import messagebox
 import datetime
 from datetime import timedelta
 from config import cfg  
-import time
 
 config = cfg
 
@@ -31,7 +29,10 @@ def connect(func):
 def initialize(cursor):
     """Check if necessary tables exist and create them if they do not."""
     try:
-        # Check for 'student' table
+        cursor.execute("CREATE DATABASE IF NOT EXISTS attendance;")
+
+        cursor.execute("USE attendance;")
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS student (
                 roll_no INT NOT NULL PRIMARY KEY,
@@ -41,7 +42,7 @@ def initialize(cursor):
                 present_percentage FLOAT
             );
         """)
-        # Check for 'record_student' table
+
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS record_student (
                 roll_no INT,

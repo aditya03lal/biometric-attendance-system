@@ -1,3 +1,4 @@
+# gui.py
 import cv2
 import tkinter as tk
 from PIL import Image, ImageTk
@@ -24,12 +25,15 @@ class App:
         self.update_webcam()
 
     def setup_buttons(self):
+        '''
+        Setups the two buttons for Viewing Attendance and Registration
+        '''
         self.attendance_button_img = ImageTk.PhotoImage(Image.open("src/buttons/attendance.png").resize((240, 60)))
-        self.attendance_button = tk.Button(self.master, image=self.attendance_button_img, command=self.ra.run_attendance_script, borderwidth=0)
+        self.attendance_button = tk.Button(self.master, image=self.attendance_button_img, command=self.ra.attendance_script, borderwidth=0)
         self.attendance_button.pack(pady=10)
 
         self.registration_button_img = ImageTk.PhotoImage(Image.open("src/buttons/registration.png").resize((240, 60)))
-        self.registration_button = tk.Button(self.master, image=self.registration_button_img, command=self.ra.run_registration_script, borderwidth=0)
+        self.registration_button = tk.Button(self.master, image=self.registration_button_img, command=self.ra.registration_form, borderwidth=0)
         self.registration_button.pack(pady=10)
 
     def initialize_webcam(self):
@@ -60,6 +64,9 @@ class App:
                 self.detected_roll_no = detected_roll_no
 
     def resize_frame(self, frame):
+        '''
+        Sets the frame's aspect ratio to fit in the main window
+        '''
         height, width, _ = frame.shape
         new_height = 375
         new_width = int((width / height) * new_height)
@@ -72,7 +79,9 @@ class App:
         self.stop_webcam_update = True
         
     def resume_webcam_feed(self):
-        """Restores the webcam feed and associated buttons after viewing records, registering, or deleting a student."""
+        '''
+        Restores the main window's webcam feed and associated buttons after viewing/deleting records or registration
+        '''
         self.master.title("EBAS")
         
         # Destroy potential widgets that are specific to views other than the main webcam feed
