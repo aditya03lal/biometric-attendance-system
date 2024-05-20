@@ -1,14 +1,12 @@
 # Embedded Biometric Attendance System
 
-Welcome to the Embedded Biometric Attendance System project! This system leverages a Raspberry Pi, Python, and MySQL to create a comprehensive attendance tracking solution using facial recognition.
+Welcome to the E.B.A.S. project! This system leverages a Raspberry Pi, Python, and MySQL to create a comprehensive attendance tracking solution using facial recognition.
 
 ## Features
 - **Dynamic UI**: Designed a dynamic user interface with customized buttons and real-time face recognition.
 - **Attendance Management**: Developed functionalities for registration and viewing attendance metrics.
 - **Robust CRUD Operations**: Implemented robust Create, Read, Update, Delete operations for managing user records in the MySQL database.
-
-![Main Window](path_to_image_of_main_window)
-![Attendance Window](path_to_image_of_attendance_window)
+<img src="main.png" alt="Main Window" style="width:30%;">
 
 ## Prerequisites
 - Install MySQL on your system
