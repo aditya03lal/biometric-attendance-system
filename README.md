@@ -7,7 +7,7 @@ Welcome to the E.B.A.S. project! This system leverages a Raspberry Pi, Python, a
 - **Dynamic UI**: Designed a dynamic user interface with customized buttons and real-time face recognition.  
 - **Attendance Management**: Dedicated functionalities for registration and viewing attendance metrics.
 <p>Main Window:</p>
-<img src="main.png" alt="Main Window" style="width:30%;">
+<img src="main.png" alt="Main Window" style="width:35%;">
 
 ## Prerequisites
 - Install MySQL on your system
