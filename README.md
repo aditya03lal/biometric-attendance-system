@@ -3,7 +3,6 @@
 Welcome to the E.B.A.S. project! This system leverages a Raspberry Pi, Python, and MySQL to create a comprehensive attendance tracking solution using facial recognition.
 
 ## Features
-Sure, here are the two points with the provided information:
 
 - **Dynamic UI**: Designed a dynamic user interface with customized buttons and real-time face recognition.  
 - **Attendance Management**: Dedicated functionalities for registration and viewing attendance metrics.
@@ -70,4 +69,4 @@ Sure, here are the two points with the provided information:
 3. Follow the on-screen instructions to register students and manage attendance.
 
 ## Contributing
-This is a relatively barebones approach for a project like this, and I'm open to contributions and refinements from anyone interested, let's make this better together!
+This is a relatively barebones approach for a project like this, I'm open to contributions and refinements from anyone interested
