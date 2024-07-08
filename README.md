@@ -1,6 +1,6 @@
 # Embedded Biometric Attendance System
 
-Welcome to the E.B.A.S. project! This system leverages a Raspberry Pi, Python, and MySQL to create a comprehensive attendance tracking solution using facial recognition. 
+Welcome to the E.B.A.S. project! This system leverages a Raspberry Pi, Python, and MySQL to create a comprehensive attendance tracking solution based on facial-recognition. 
 
 ## Features
 
