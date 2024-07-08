@@ -4,8 +4,8 @@ Welcome to the E.B.A.S. project! This system leverages a Raspberry Pi, Python, a
 
 ## Features
 
-- **UI with Tkinter**: Designed a dynamic user interface with customized buttons and real-time face recognition.  
-- **Attendance Management**: Dedicated functionalities for registration and viewing attendance metrics.
+- **UI with Tkinter**: Designed a dynamic Tkinter UI with custom buttons, featuring a live feed display using OpenCV.  
+- **Attendance Management**: Implemented MySQL integration for new registrations and viewing attendance metrics.
 <p>Main Window:</p>
 <img src="main_window.png" alt="Main Window" style="width:35%;">
 
