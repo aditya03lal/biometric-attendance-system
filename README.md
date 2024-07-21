@@ -6,7 +6,7 @@ E.B.A.S. is a facial-recognition based attendance management system developed us
 
 - **UI with Tkinter**: Designed a dynamic Tkinter UI with custom buttons, featuring a live feed display using OpenCV.  
 - **Attendance Management**: Implemented MySQL integration for new registrations and viewing attendance metrics.
-<p>Main Window:</p>
+<p>Main Window (face blurred for privacy):</p>
 <img src="./__pycache__/main_window.png" alt="Main Window" style="width:35%;">
 
 ## Prerequisites
