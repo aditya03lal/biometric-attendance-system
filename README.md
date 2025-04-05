@@ -46,8 +46,8 @@ B.A.S. is a facial-recognition based attendance management system developed usin
 
 1. **Clone the repository:**
     ```bash
-    git clone https://github.com/aditya17lal/Embedded_Biometric_Attendance_System.git
-    cd Embedded_Biometric_Attendance_System
+    git clone https://github.com/aditya17lal/biometric-attendance-system.git
+    cd biometric-attendance-system
     ```
 
 2. **Activate the virtual environment:**
